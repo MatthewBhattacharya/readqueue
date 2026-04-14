@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
 <title>ReadQueue</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,300;0,7..72,500;0,7..72,700;1,7..72,300&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -311,11 +312,28 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .viewer-frame {
-    width: 100%;
+  .viewer-pages {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     height: calc(100vh - 56px);
     height: calc(100dvh - 56px);
-    border: none;
+    background: #525659;
+    padding: 8px 0;
+  }
+  .viewer-pages canvas {
+    display: block;
+    margin: 0 auto 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .viewer-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #aaa;
+    font-size: 14px;
+    text-align: center;
+    padding: 40px;
   }
 
   /* ── Empty State ── */
@@ -495,7 +513,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
     </button>
   </div>
-  <iframe class="viewer-frame" id="viewerFrame"></iframe>
+  <div class="viewer-pages" id="viewerPages"></div>
 </div>
 
 <script>
@@ -628,46 +646,72 @@
     document.getElementById('viewerTitle').textContent = item.name.replace('.pdf', '');
     showScreen('viewerScreen');
 
-    const frame = document.getElementById('viewerFrame');
+    const container = document.getElementById('viewerPages');
 
     if (config.demo) {
-      frame.srcdoc = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#888;padding:40px;text-align:center;"><div><h2 style="margin-bottom:12px;">📄 ${item.name}</h2><p>This is a demo preview. Connect your Google Drive to view real PDFs here.</p></div></div>`;
+      container.innerHTML = `<div class="viewer-message"><div><div style="font-size:40px;margin-bottom:16px">📄</div><div>${escapeHtml(item.name)}</div><div style="margin-top:8px;font-size:13px">Connect your Drive to read real PDFs.</div></div></div>`;
       return;
     }
 
-    // Try cache first
-    try {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(`pdf-${item.id}`);
-      if (cached) {
-        const blob = await cached.blob();
-        frame.src = URL.createObjectURL(blob);
-        return;
-      }
-    } catch {}
-
-    // Download and display as blob URL — Drive's /preview embed doesn't render inline on mobile
-    document.querySelector('.loading-text').textContent = `Loading ${item.size ? item.size + '…' : 'PDF…'}`;
+    document.querySelector('.loading-text').textContent = `Loading ${item.size || 'PDF'}…`;
     showLoading(true);
+    container.innerHTML = '';
+
     try {
-      const downloadUrl = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${config.apiKey}`;
-      const res = await fetch(downloadUrl);
-      if (!res.ok) throw new Error(`Download failed (${res.status})`);
-      const blob = await res.blob();
-      frame.src = URL.createObjectURL(blob);
+      let arrayBuffer;
+
+      // Try cache first
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(`pdf-${item.id}`);
+        if (cached) arrayBuffer = await cached.arrayBuffer();
+      } catch {}
+
+      // Download if not cached
+      if (!arrayBuffer) {
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${config.apiKey}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.error?.message || `Download failed (${res.status})`);
+        }
+        arrayBuffer = await res.arrayBuffer();
+      }
+
+      showLoading(false);
+      await renderPdf(arrayBuffer, container);
     } catch (err) {
+      showLoading(false);
       showToast(err.message || 'Could not load PDF');
       closeViewer();
     } finally {
-      showLoading(false);
       document.querySelector('.loading-text').textContent = 'Loading your queue…';
     }
   }
 
+  async function renderPdf(arrayBuffer, container) {
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const dpr = window.devicePixelRatio || 1;
+    const containerWidth = container.clientWidth;
+
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const scale = (containerWidth * dpr) / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.width = containerWidth + 'px';
+      canvas.style.height = Math.round(viewport.height / dpr) + 'px';
+      container.appendChild(canvas);
+
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    }
+  }
+
   function closeViewer() {
-    const frame = document.getElementById('viewerFrame');
-    frame.src = '';
-    frame.srcdoc = '';
+    document.getElementById('viewerPages').innerHTML = '';
     showScreen('queueScreen');
     currentViewId = null;
   }
@@ -772,6 +816,10 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2500);
   }
+
+  // ── PDF.js setup ──
+  const PDFJS_VERSION = '3.4.120';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.js`;
 
   // ── Service Worker Registration ──
   if ('serviceWorker' in navigator) {
