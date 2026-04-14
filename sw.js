@@ -3,9 +3,9 @@ const PDF_CACHE = 'rq-pdf-cache-v1';
 
 // App shell files to cache for offline
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+  '/readqueue/',
+  '/readqueue/index.html',
+  '/readqueue/manifest.json',
 ];
 
 // Install — cache app shell
@@ -36,7 +36,7 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached =>
       cached || fetch(event.request).catch(() =>
-        caches.match('/index.html')
+        caches.match('/readqueue/index.html')
       )
     )
   );

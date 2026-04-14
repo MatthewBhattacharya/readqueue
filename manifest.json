@@ -2,7 +2,7 @@
   "name": "ReadQueue",
   "short_name": "ReadQueue",
   "description": "Your PDF reading queue, powered by Google Drive",
-  "start_url": "/index.html",
+  "start_url": "/readqueue/index.html",
   "display": "standalone",
   "background_color": "#f5f0e8",
   "theme_color": "#1a1a1a",
