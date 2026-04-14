@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a1a1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>ReadQueue</title>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,300;0,7..72,500;0,7..72,700;1,7..72,300&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --bg-card: #fffcf5;
+    --text: #2c2416;
+    --text-muted: #8a7e6b;
+    --accent: #c45d3e;
+    --accent-hover: #a84b30;
+    --border: #e5ddd0;
+    --shadow: rgba(44, 36, 22, 0.08);
+    --shadow-lg: rgba(44, 36, 22, 0.15);
+    --cached: #5a8a5e;
+    --cached-bg: #eef5ee;
+    --unread-dot: #c45d3e;
+    --read-opacity: 0.55;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Header ── */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .logo {
+    font-family: 'Literata', serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 10px; }
+  .icon-btn {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-muted);
+  }
+  .icon-btn:active { transform: scale(0.92); background: var(--border); }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-weight: 400;
+  }
+
+  /* ── Screens ── */
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* ── Setup Screen ── */
+  .setup-screen {
+    padding: 40px 20px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .setup-screen h2 {
+    font-family: 'Literata', serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .setup-screen p {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+  .step {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .step h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .step p {
+    font-size: 13px;
+    margin-bottom: 12px;
+    color: var(--text-muted);
+  }
+  .step input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border 0.2s;
+  }
+  .step input:focus { border-color: var(--accent); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+  .btn-primary:active { transform: scale(0.97); background: var(--accent-hover); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-secondary {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-card);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 8px;
+  }
+  .btn-secondary:active { transform: scale(0.97); }
+
+  /* ── Queue Screen ── */
+  .queue-screen { padding-bottom: 100px; }
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    padding: 12px 20px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .stats-bar .count { color: var(--text); font-weight: 600; }
+
+  .pdf-list { padding: 0 12px; }
+  .pdf-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .pdf-card:active { transform: scale(0.98); box-shadow: 0 2px 12px var(--shadow); }
+  .pdf-card.read { opacity: var(--read-opacity); }
+  .pdf-card.read .pdf-title { text-decoration: line-through; }
+
+  .pdf-icon {
+    width: 44px; height: 56px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #fee2d6, #fdd1be);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+  .pdf-info { flex: 1; min-width: 0; }
+  .pdf-title {
+    font-family: 'Literata', serif;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pdf-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cached-badge {
+    font-size: 11px;
+    color: var(--cached);
+    background: var(--cached-bg);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .unread-dot {
+    position: absolute;
+    top: 10px; left: 10px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--unread-dot);
+  }
+  .card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .card-btn {
+    width: 34px; height: 34px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.15s;
+  }
+  .card-btn:active { background: var(--border); }
+  .card-btn svg { width: 16px; height: 16px; }
+
+  /* ── Viewer ── */
+  .viewer-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: white;
+  }
+  .viewer-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: #1a1a1a;
+    color: white;
+  }
+  .viewer-back {
+    width: 36px; height: 36px;
+    border: none;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .viewer-back svg { width: 20px; height: 20px; }
+  .viewer-title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .viewer-frame {
+    width: 100%;
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+    border: none;
+  }
+
+  /* ── Empty State ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 30px;
+  }
+  .empty-state .empty-icon {
+    width: 80px; height: 80px;
+    margin: 0 auto 20px;
+    background: var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+  }
+  .empty-state .empty-icon svg { width: 36px; height: 36px; }
+  .empty-state h3 {
+    font-family: 'Literata', serif;
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+  .empty-state p {
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Loading ── */
+  .loading-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(245,240,232,0.85);
+    z-index: 150;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .loading-overlay.active { display: flex; }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text-muted); }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--text);
+    color: var(--bg);
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 300;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── Refresh Pull hint ── */
+  .pull-hint {
+    text-align: center;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Loading ── -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading your queue…</div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ════════════ SETUP SCREEN ════════════ -->
+<div class="screen active" id="setupScreen">
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">Read<span>Queue</span></div>
+    </div>
+  </div>
+  <div class="setup-screen">
+    <h2>Connect to Google Drive</h2>
+    <p>ReadQueue watches a Google Drive folder and gives you a clean reading queue with offline support. Here's how to set it up:</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Create a Drive folder</h3>
+      <p>Create a folder in Google Drive called <strong>"ReadQueue"</strong> (or whatever you like). Drop your PDFs in there from any device.</p>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Get a Google API Key</h3>
+      <p>Go to <strong>console.cloud.google.com</strong>, create a project, enable the <em>Google Drive API</em>, and create an API key. Restrict it to the Drive API for safety.</p>
+      <input type="text" id="apiKeyInput" placeholder="Paste your API key here">
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Share folder or make it accessible</h3>
+      <p>Either make the folder link-accessible ("Anyone with the link can view") or use OAuth. For simplicity, we'll use a shared link + API key approach. Paste the folder ID below — it's the long string in the folder URL after <code>/folders/</code>.</p>
+      <input type="text" id="folderIdInput" placeholder="e.g. 1aBcDeFgHiJkLmNoPqRsT">
+    </div>
+
+    <button class="btn-primary" id="connectBtn" onclick="saveConfig()">Connect &amp; Start Reading</button>
+
+    <div style="margin-top: 24px;">
+      <div class="step">
+        <div class="step-num">?</div>
+        <h3>Want to try it first?</h3>
+        <p>Load a demo queue to see how the app looks and feels before connecting your Drive.</p>
+        <button class="btn-secondary" onclick="loadDemo()">Load Demo Queue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ QUEUE SCREEN ════════════ -->
+<div class="screen" id="queueScreen">
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">Read<span>Queue</span></div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="refreshQueue()" title="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        </button>
+        <button class="icon-btn" onclick="showSetup()" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="subtitle" id="subtitleText">Your reading queue</div>
+  </div>
+
+  <div class="stats-bar">
+    <div><span class="count" id="unreadCount">0</span> unread</div>
+    <div><span class="count" id="totalCount">0</span> total</div>
+    <div><span class="count" id="cachedCount">0</span> offline</div>
+  </div>
+
+  <div class="pdf-list" id="pdfList"></div>
+
+  <div class="empty-state" id="emptyState" style="display:none;">
+    <div class="empty-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <h3>Queue is empty</h3>
+    <p>Drop PDFs into your Google Drive folder and tap refresh to see them here.</p>
+  </div>
+</div>
+
+<!-- ════════════ VIEWER SCREEN ════════════ -->
+<div class="screen" id="viewerScreen">
+  <div class="viewer-header">
+    <button class="viewer-back" onclick="closeViewer()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="viewer-title" id="viewerTitle">Document</div>
+    <button class="viewer-back" onclick="toggleRead(currentViewId)" title="Mark read" id="viewerReadBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </button>
+  </div>
+  <iframe class="viewer-frame" id="viewerFrame"></iframe>
+</div>
+
+<script>
+  // ── State ──
+  let config = JSON.parse(localStorage.getItem('rq_config') || 'null');
+  let queue = JSON.parse(localStorage.getItem('rq_queue') || '[]');
+  let readSet = new Set(JSON.parse(localStorage.getItem('rq_read') || '[]'));
+  let currentViewId = null;
+
+  const CACHE_NAME = 'rq-pdf-cache-v1';
+
+  // ── Init ──
+  function init() {
+    if (config) {
+      showQueue();
+      renderList();
+      // auto-refresh on load if online
+      if (navigator.onLine) refreshQueue();
+    } else {
+      showScreen('setupScreen');
+    }
+  }
+
+  // ── Screen Management ──
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function showQueue() { showScreen('queueScreen'); }
+  function showSetup() { showScreen('setupScreen'); }
+
+  // ── Config ──
+  function saveConfig() {
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    const folderId = document.getElementById('folderIdInput').value.trim();
+    if (!apiKey || !folderId) {
+      showToast('Please fill in both fields');
+      return;
+    }
+    config = { apiKey, folderId };
+    localStorage.setItem('rq_config', JSON.stringify(config));
+    showQueue();
+    refreshQueue();
+  }
+
+  // ── Demo Mode ──
+  function loadDemo() {
+    config = { demo: true };
+    localStorage.setItem('rq_config', JSON.stringify(config));
+    queue = [
+      { id: 'demo1', name: 'Deep Learning Fundamentals.pdf', size: '2.4 MB', modified: new Date(Date.now() - 86400000).toISOString(), webViewLink: '' },
+      { id: 'demo2', name: 'The Art of Readable Code.pdf', size: '1.8 MB', modified: new Date(Date.now() - 172800000).toISOString(), webViewLink: '' },
+      { id: 'demo3', name: 'Attention Is All You Need.pdf', size: '540 KB', modified: new Date(Date.now() - 3600000).toISOString(), webViewLink: '' },
+      { id: 'demo4', name: 'Designing Data-Intensive Applications — Ch7.pdf', size: '3.1 MB', modified: new Date(Date.now() - 7200000).toISOString(), webViewLink: '' },
+      { id: 'demo5', name: 'RFC 9110 — HTTP Semantics.pdf', size: '890 KB', modified: new Date(Date.now() - 259200000).toISOString(), webViewLink: '' },
+    ];
+    localStorage.setItem('rq_queue', JSON.stringify(queue));
+    showQueue();
+    renderList();
+    showToast('Demo loaded — 5 sample PDFs');
+  }
+
+  // ── Fetch from Google Drive ──
+  async function refreshQueue() {
+    if (!config || config.demo) {
+      renderList();
+      return;
+    }
+    showLoading(true);
+    try {
+      const url = `https://www.googleapis.com/drive/v3/files?q='${config.folderId}'+in+parents+and+mimeType='application/pdf'+and+trashed=false&fields=files(id,name,size,modifiedTime,webViewLink,webContentLink)&orderBy=modifiedTime+desc&key=${config.apiKey}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Drive API error: ${res.status}`);
+      const data = await res.json();
+      queue = (data.files || []).map(f => ({
+        id: f.id,
+        name: f.name,
+        size: formatSize(parseInt(f.size) || 0),
+        modified: f.modifiedTime,
+        webViewLink: f.webViewLink || '',
+        webContentLink: f.webContentLink || '',
+      }));
+      localStorage.setItem('rq_queue', JSON.stringify(queue));
+      renderList();
+      showToast(`Refreshed — ${queue.length} PDF${queue.length !== 1 ? 's' : ''}`);
+    } catch (err) {
+      console.error(err);
+      showToast('Refresh failed — check connection & config');
+    }
+    showLoading(false);
+  }
+
+  // ── Cache PDF for Offline ──
+  async function cachePdf(item) {
+    if (config.demo) {
+      showToast('Caching unavailable in demo');
+      return;
+    }
+    showToast('Caching for offline…');
+    try {
+      // Use the export link for Google Drive files
+      const downloadUrl = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${config.apiKey}`;
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error('Download failed');
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(`pdf-${item.id}`, res);
+      renderList();
+      showToast('Saved for offline reading');
+    } catch (err) {
+      console.error(err);
+      showToast('Cache failed — try again');
+    }
+  }
+
+  async function isCached(id) {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const res = await cache.match(`pdf-${id}`);
+      return !!res;
+    } catch { return false; }
+  }
+
+  // ── Open PDF ──
+  async function openPdf(item) {
+    currentViewId = item.id;
+    document.getElementById('viewerTitle').textContent = item.name.replace('.pdf', '');
+    showScreen('viewerScreen');
+
+    const frame = document.getElementById('viewerFrame');
+
+    if (config.demo) {
+      frame.srcdoc = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#888;padding:40px;text-align:center;"><div><h2 style="margin-bottom:12px;">📄 ${item.name}</h2><p>This is a demo preview. Connect your Google Drive to view real PDFs here.</p></div></div>`;
+      return;
+    }
+
+    // Try cache first
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(`pdf-${item.id}`);
+      if (cached) {
+        const blob = await cached.blob();
+        frame.src = URL.createObjectURL(blob);
+        return;
+      }
+    } catch {}
+
+    // Fall back to Google Drive embedded preview (/preview allows iframe embedding; /view does not)
+    frame.src = `https://drive.google.com/file/d/${item.id}/preview`;
+  }
+
+  function closeViewer() {
+    const frame = document.getElementById('viewerFrame');
+    frame.src = '';
+    frame.srcdoc = '';
+    showScreen('queueScreen');
+    currentViewId = null;
+  }
+
+  // ── Read Status ──
+  function toggleRead(id, e) {
+    if (e) e.stopPropagation();
+    if (readSet.has(id)) readSet.delete(id);
+    else readSet.add(id);
+    localStorage.setItem('rq_read', JSON.stringify([...readSet]));
+    renderList();
+  }
+
+  // ── Render List ──
+  async function renderList() {
+    const list = document.getElementById('pdfList');
+    const empty = document.getElementById('emptyState');
+
+    if (queue.length === 0) {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+      updateStats();
+      return;
+    }
+    empty.style.display = 'none';
+
+    // Check cache status for all items
+    const cacheStatuses = await Promise.all(queue.map(item => isCached(item.id)));
+
+    list.innerHTML = queue.map((item, i) => {
+      const isRead = readSet.has(item.id);
+      const cached = cacheStatuses[i];
+      const timeAgo = formatTimeAgo(item.modified);
+      return `
+        <div class="pdf-card ${isRead ? 'read' : ''}" onclick="openPdf(queue[${i}])">
+          ${!isRead ? '<div class="unread-dot"></div>' : ''}
+          <div class="pdf-icon">PDF</div>
+          <div class="pdf-info">
+            <div class="pdf-title">${escapeHtml(item.name.replace('.pdf', ''))}</div>
+            <div class="pdf-meta">
+              <span>${item.size}</span>
+              <span>·</span>
+              <span>${timeAgo}</span>
+              ${cached ? '<span class="cached-badge">offline</span>' : ''}
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="card-btn" onclick="event.stopPropagation(); toggleRead('${item.id}')" title="${isRead ? 'Mark unread' : 'Mark read'}">
+              <svg viewBox="0 0 24 24" fill="${isRead ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+            ${!cached && !config.demo ? `<button class="card-btn" onclick="event.stopPropagation(); cachePdf(queue[${i}])" title="Save offline">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    updateStats(cacheStatuses);
+  }
+
+  function updateStats(cacheStatuses) {
+    document.getElementById('totalCount').textContent = queue.length;
+    document.getElementById('unreadCount').textContent = queue.filter(q => !readSet.has(q.id)).length;
+    const cachedNum = cacheStatuses ? cacheStatuses.filter(Boolean).length : 0;
+    document.getElementById('cachedCount').textContent = cachedNum;
+  }
+
+  // ── Helpers ──
+  function formatSize(bytes) {
+    if (bytes === 0) return '—';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(0) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+  }
+
+  function formatTimeAgo(iso) {
+    if (!iso) return '';
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return days + 'd ago';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function showLoading(on) {
+    document.getElementById('loading').classList.toggle('active', on);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ── Service Worker Registration ──
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // ── Start ──
+  init();
+</script>
+</body>
+</html>
