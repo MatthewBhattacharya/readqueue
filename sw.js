@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rq-app-cache-v1';
+const CACHE_NAME = 'rq-app-cache-v2';
 const PDF_CACHE = 'rq-pdf-cache-v1';
 
 // App shell files to cache for offline
