@@ -568,7 +568,11 @@
     try {
       const url = `https://www.googleapis.com/drive/v3/files?q='${config.folderId}'+in+parents+and+mimeType='application/pdf'+and+trashed=false&fields=files(id,name,size,modifiedTime,webViewLink,webContentLink)&orderBy=modifiedTime+desc&key=${config.apiKey}`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`Drive API error: ${res.status}`);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData?.error?.message || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
       const data = await res.json();
       queue = (data.files || []).map(f => ({
         id: f.id,
@@ -583,7 +587,7 @@
       showToast(`Refreshed — ${queue.length} PDF${queue.length !== 1 ? 's' : ''}`);
     } catch (err) {
       console.error(err);
-      showToast('Refresh failed — check connection & config');
+      showToast(err.message || 'Refresh failed');
     }
     showLoading(false);
   }
