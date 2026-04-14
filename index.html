@@ -646,8 +646,22 @@
       }
     } catch {}
 
-    // Fall back to Google Drive embedded preview (/preview allows iframe embedding; /view does not)
-    frame.src = `https://drive.google.com/file/d/${item.id}/preview`;
+    // Download and display as blob URL — Drive's /preview embed doesn't render inline on mobile
+    document.querySelector('.loading-text').textContent = `Loading ${item.size ? item.size + '…' : 'PDF…'}`;
+    showLoading(true);
+    try {
+      const downloadUrl = `https://www.googleapis.com/drive/v3/files/${item.id}?alt=media&key=${config.apiKey}`;
+      const res = await fetch(downloadUrl);
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      frame.src = URL.createObjectURL(blob);
+    } catch (err) {
+      showToast(err.message || 'Could not load PDF');
+      closeViewer();
+    } finally {
+      showLoading(false);
+      document.querySelector('.loading-text').textContent = 'Loading your queue…';
+    }
   }
 
   function closeViewer() {
