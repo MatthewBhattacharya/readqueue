@@ -482,7 +482,7 @@
         </button>
       </div>
     </div>
-    <div class="subtitle" id="subtitleText">Your reading queue <span style="opacity:0.5">v4</span></div>
+    <div class="subtitle" id="subtitleText">Your reading queue <span style="opacity:0.5">v5</span></div>
   </div>
 
   <div class="stats-bar">
@@ -521,7 +521,9 @@
   let config = JSON.parse(localStorage.getItem('rq_config') || 'null');
   let queue = JSON.parse(localStorage.getItem('rq_queue') || '[]');
   let readSet = new Set(JSON.parse(localStorage.getItem('rq_read') || '[]'));
+  let pagePositions = JSON.parse(localStorage.getItem('rq_pages') || '{}');
   let currentViewId = null;
+  let pdfObserver = null;
 
   const CACHE_NAME = 'rq-pdf-cache-v1';
 
@@ -678,7 +680,7 @@
       }
 
       showLoading(false);
-      await renderPdf(arrayBuffer, container);
+      await renderPdf(arrayBuffer, container, pagePositions[item.id] || 1);
     } catch (err) {
       showLoading(false);
       showToast(err.message || 'Could not load PDF');
@@ -688,13 +690,16 @@
     }
   }
 
-  async function renderPdf(arrayBuffer, container) {
+  async function renderPdf(arrayBuffer, container, startPage) {
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const dpr = window.devicePixelRatio || 1;
     const containerWidth = container.clientWidth;
+    const pageData = [];
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
+    // Phase 1: create all canvases with correct dimensions (no pixel rendering yet).
+    // This preserves scroll geometry so we can jump to any page immediately.
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
       const baseViewport = page.getViewport({ scale: 1 });
       const scale = (containerWidth * dpr) / baseViewport.width;
       const viewport = page.getViewport({ scale });
@@ -704,13 +709,55 @@
       canvas.height = viewport.height;
       canvas.style.width = containerWidth + 'px';
       canvas.style.height = Math.round(viewport.height / dpr) + 'px';
+      canvas.dataset.page = i;
       container.appendChild(canvas);
-
-      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      pageData.push({ canvas, page, viewport });
     }
+
+    // Phase 2: render pages lazily as they scroll into view (+ 400px preload margin).
+    if (pdfObserver) pdfObserver.disconnect();
+    pdfObserver = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !entry.target._rendered) {
+          entry.target._rendered = true;
+          const idx = parseInt(entry.target.dataset.page) - 1;
+          const { page, viewport } = pageData[idx];
+          page.render({ canvasContext: entry.target.getContext('2d'), viewport });
+        }
+      });
+    }, { root: container, rootMargin: '400px' });
+
+    pageData.forEach(({ canvas }) => pdfObserver.observe(canvas));
+
+    // Phase 3: jump to saved page.
+    if (startPage && startPage > 1 && pageData[startPage - 1]) {
+      pageData[startPage - 1].canvas.scrollIntoView();
+      showToast(`Resumed from page ${startPage}`);
+    }
+
+    // Phase 4: track current page on scroll so we can restore it later.
+    let scrollTimer;
+    container.addEventListener('scroll', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => savePage(container), 400);
+    }, { passive: true });
+  }
+
+  function savePage(container) {
+    if (!currentViewId) return;
+    const mid = container.scrollTop + container.clientHeight / 2;
+    let page = 1;
+    for (const c of container.querySelectorAll('canvas[data-page]')) {
+      if (c.offsetTop <= mid) page = parseInt(c.dataset.page);
+      else break;
+    }
+    pagePositions[currentViewId] = page;
+    localStorage.setItem('rq_pages', JSON.stringify(pagePositions));
   }
 
   function closeViewer() {
+    savePage(document.getElementById('viewerPages'));
+    if (pdfObserver) { pdfObserver.disconnect(); pdfObserver = null; }
     document.getElementById('viewerPages').innerHTML = '';
     showScreen('queueScreen');
     currentViewId = null;
